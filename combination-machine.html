@@ -1,0 +1,196 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Combination Machine</title>
+<style>
+  :root{
+    --ink:#16151a; --ink-soft:#6b6877; --line:#e7e5e0; --card:#faf9f7;
+    --accent:#4f46e5; --accent-soft:#ece9ff; --bg:#ffffff;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono","Roboto Mono",Menlo,monospace;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;line-height:1.45}
+  .wrap{max-width:760px;margin:0 auto;padding:28px 20px 64px}
+  /* mode toggle — the signature element */
+  .modes{display:inline-flex;background:var(--card);border:1px solid var(--line);
+    border-radius:999px;padding:4px;gap:2px;margin-bottom:22px}
+  .modes button{appearance:none;border:0;background:transparent;cursor:pointer;
+    font-family:var(--sans);font-size:13px;font-weight:600;letter-spacing:.01em;
+    color:var(--ink-soft);padding:9px 18px;border-radius:999px;transition:background .18s,color .18s}
+  .modes button[aria-pressed="true"]{background:var(--accent);color:#fff}
+  .modes button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .mode-q{font-size:13.5px;color:var(--ink-soft);margin:-10px 0 20px;max-width:54ch}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:18px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink-soft);margin:0 0 10px}
+  .bignum{font-size:clamp(48px,12vw,86px);font-weight:800;line-height:.95;letter-spacing:-.02em;
+    margin:0;font-variant-numeric:tabular-nums}
+  .approx{color:var(--accent);font-weight:600;font-size:16px;margin:10px 0 0}
+  .approx.plain{color:var(--ink-soft)}
+  .barwrap{display:flex;align-items:center;gap:14px;margin-top:20px}
+  .bar{flex:1;height:7px;background:#eceae6;border-radius:99px;overflow:hidden}
+  .bar > i{display:block;height:100%;background:var(--accent);border-radius:99px;
+    transition:width .45s cubic-bezier(.2,.7,.2,1)}
+  .oom{font-family:var(--mono);font-size:12px;color:var(--ink-soft);white-space:nowrap}
+  .caption{margin:18px 0 0;font-size:14px;color:var(--ink);border-top:1px solid var(--line);padding-top:16px}
+  .caption b{color:var(--accent)}
+  .lever{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}
+  .lever:last-of-type{border-bottom:0}
+  .lever .name{flex:1;font-size:15px;font-weight:500;border:0;background:transparent;
+    font-family:var(--sans);color:var(--ink);padding:4px 2px;border-radius:6px;min-width:0}
+  .lever .name:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .lever input.cnt{width:62px;font-family:var(--mono);font-size:15px;text-align:center;
+    padding:8px 6px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink)}
+  .lever input.cnt:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  .lever .rm{appearance:none;border:0;background:transparent;color:var(--ink-soft);cursor:pointer;
+    font-size:16px;line-height:1;padding:6px;border-radius:6px}
+  .lever .rm:hover{color:var(--ink);background:#efedea}
+  .add{appearance:none;border:0;background:transparent;color:var(--accent);font-family:var(--sans);
+    font-weight:600;font-size:14px;cursor:pointer;padding:14px 0 2px}
+  .add:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+  .scene{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .switch{position:relative;width:42px;height:24px;flex:0 0 auto}
+  .switch input{opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+  .switch .track{position:absolute;inset:0;background:#d9d7d2;border-radius:99px;transition:background .18s;pointer-events:none}
+  .switch .knob{position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;
+    transition:transform .18s;pointer-events:none;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+  .switch input:checked ~ .track{background:var(--accent)}
+  .switch input:checked ~ .knob{transform:translateX(18px)}
+  .switch input:focus-visible ~ .track{outline:2px solid var(--accent);outline-offset:2px}
+  .scene .lbl{font-size:15px;font-weight:500}
+  .scene .lbl em{color:var(--ink-soft);font-style:italic}
+  .scene .slider-row{display:flex;align-items:center;gap:10px;margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--ink-soft)}
+  .scene input[type=range]{accent-color:var(--accent)}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:540px){.stats{grid-template-columns:1fr}}
+  .stat .eyebrow{margin-bottom:8px}
+  .stat .val{font-size:26px;font-weight:800;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+  .stat .sub{font-size:12.5px;color:var(--ink-soft);margin-top:4px}
+  @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+<div class="wrap">
+  <div class="modes" role="group" aria-label="Modo">
+    <button id="mBuild" aria-pressed="true">Construir</button>
+    <button id="mDiag" aria-pressed="false">Diagnosticar</button>
+  </div>
+  <p class="mode-q" id="modeQ"></p>
+  <div class="card">
+    <p class="eyebrow" id="eyebrow">Anuncios distintos que podrías construir</p>
+    <p class="bignum" id="bignum">0</p>
+    <p class="approx" id="approx"></p>
+    <div class="barwrap"><div class="bar"><i id="bar" style="width:0%"></i></div>
+      <span class="oom" id="oom"></span></div>
+    <p class="caption" id="caption"></p>
+  </div>
+  <div class="card">
+    <div id="levers"></div>
+    <button class="add" id="add">+ añadir una palanca</button>
+  </div>
+  <div class="card" id="sceneCard">
+    <div class="scene">
+      <label class="switch"><input type="checkbox" id="sceneToggle" aria-label="El orden de escenas también importa">
+        <span class="track"></span><span class="knob"></span></label>
+      <span class="lbl">El <em>orden</em> de escenas también importa</span>
+      <span class="slider-row" id="sceneSliderRow" hidden>
+        Escenas <input type="range" id="scenes" min="2" max="12" value="9" aria-label="Número de escenas">
+        <b id="sceneN">9</b> <span id="sceneFac"></span></span>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="card stat"><p class="eyebrow" id="s1lab"></p>
+      <div class="val" id="s1val"></div><div class="sub" id="s1sub"></div></div>
+    <div class="card stat"><p class="eyebrow" id="s2lab"></p>
+      <div class="val" id="s2val"></div><div class="sub" id="s2sub"></div></div>
+  </div>
+</div>
+<script>
+const LIB = 497;
+const presets = {
+  build: [["Hooks",4],["Historias / ángulos",4],["CTAs",1],["Creadores",4],
+          ["Fondos",4],["Productos / ofertas",1],["Cuadros de apertura",4]],
+  diagnose: [["Valencia",4],["Intensidad",4],["Yo",3],["Emoción",1]]
+};
+let mode = "build";
+let levers = presets.build.map(l=>[...l]);
+let sceneOn = false, scenes = 9;
+const $ = id => document.getElementById(id);
+const fac = n => { let r=1; for(let i=2;i<=n;i++) r*=i; return r; };
+function commas(n){ return Math.round(n).toLocaleString("en-US"); }
+function humanizeBig(n){
+  if(n < 1000) return null;
+  const units=[[1e12,"billón"],[1e9,"mil millones"],[1e6,"millón"],[1e3,"mil"]];
+  for(const [v,w] of units){ if(n>=v){ const x=n/v; return "≈ "+(x>=100?Math.round(x):x.toFixed(x>=10?0:1))+" "+w; } }
+}
+function humanizeTime(min){
+  if(min < 90) return [commas(min), "min"];
+  const h=min/60; if(h<48) return [h.toFixed(h<10?1:0), "horas"];
+  const d=h/24; if(d<730) return [Math.round(d).toLocaleString(), "días"];
+  const y=d/365; return [y>=100?commas(y):y.toFixed(1), "años"];
+}
+function render(){
+  // mode chrome
+  $("mBuild").setAttribute("aria-pressed", mode==="build");
+  $("mDiag").setAttribute("aria-pressed", mode==="diagnose");
+  $("sceneCard").style.display = mode==="build" ? "" : "none";
+  $("modeQ").textContent = mode==="build"
+    ? "¿Cuántos anuncios distintos podrías hacer con estas piezas? Este es el espacio — y no puedes probarlos todos."
+    : "¿En cuántos estados distintos podría estar un cliente? Esto no es una cuenta de anuncios a hacer — tu cliente siempre es uno solo de ellos.";
+  // levers
+  const box=$("levers"); box.innerHTML="";
+  levers.forEach(([name,cnt],i)=>{
+    const row=document.createElement("div"); row.className="lever";
+    row.innerHTML = `<input class="name" type="text" value="${name.replace(/"/g,'"')}" aria-label="Nombre de la palanca">
+      <input class="cnt" type="number" min="1" value="${cnt}" aria-label="Opciones de ${name}">
+      <button class="rm" aria-label="Quitar ${name}">×</button>`;
+    row.querySelector(".name").addEventListener("input",e=>{ levers[i][0]=e.target.value; });
+    row.querySelector(".cnt").addEventListener("input",e=>{
+      levers[i][1]=Math.max(1, parseInt(e.target.value)||1); calc(); });
+    row.querySelector(".rm").addEventListener("click",()=>{ levers.splice(i,1); render(); });
+    box.appendChild(row);
+  });
+  // scene
+  $("sceneToggle").checked = sceneOn;
+  $("sceneSliderRow").hidden = !sceneOn;
+  $("scenes").value = scenes; $("sceneN").textContent = scenes;
+  $("sceneFac").textContent = "× "+commas(fac(scenes))+" ordenamientos";
+  calc();
+}
+function calc(){
+  let product = levers.reduce((a,[,c])=>a*c, 1);
+  if(mode==="build" && sceneOn) product *= fac(scenes);
+  $("eyebrow").textContent = mode==="build" ? "Anuncios distintos que podrías construir" : "Estados de cliente que existen";
+  $("bignum").textContent = commas(product);
+  const h = humanizeBig(product);
+  $("approx").textContent = h || ("= "+commas(product));
+  $("approx").className = "approx" + (h ? "" : " plain");
+  const oom = product>1 ? Math.log10(product) : 0;
+  $("bar").style.width = Math.min(100, oom/9*100).toFixed(1)+"%";
+  $("oom").textContent = oom.toFixed(1)+" órdenes de magnitud";
+  if(mode==="build"){
+    $("caption").innerHTML = "Cada uno de estos es un anuncio real que se puede hacer. <b>No puedes elegir al ganador de aquí</b> — nadie puede.";
+    const [tv,tu]=humanizeTime(product);
+    $("s1lab").textContent="Tiempo para probarlos todos";
+    $("s1val").textContent=tv+" "+tu; $("s1sub").textContent="a 1 variante nueva por minuto, 24/7";
+    const ratio = product/LIB;
+    $("s2lab").textContent="vs. una biblioteca de 497 conceptos";
+    $("s2val").textContent = (ratio>=10?commas(ratio):ratio.toFixed(2))+"×";
+    $("s2sub").textContent="cuántas veces más grande es el espacio";
+  } else {
+    $("caption").innerHTML = "No construyes estos — tu cliente <b>es</b> uno de ellos. Nombra cuál, y tu biblioteca de 497 anuncios se reduce a una lista corta.";
+    $("s1lab").textContent="Tu cliente es uno de";
+    $("s1val").textContent=commas(product); $("s1sub").textContent="estados — solo enfrentas uno a la vez";
+    $("s2lab").textContent="De tu biblioteca de 497 conceptos";
+    $("s2val").textContent="→ una lista corta";
+    $("s2sub").textContent="empareja la etapa del estado + registro + historia";
+  }
+}
+$("mBuild").onclick=()=>{ if(mode==="build")return; mode="build"; levers=presets.build.map(l=>[...l]); render(); };
+$("mDiag").onclick=()=>{ if(mode==="diagnose")return; mode="diagnose"; levers=presets.diagnose.map(l=>[...l]); render(); };
+$("add").onclick=()=>{ levers.push(["Nueva palanca",2]); render(); };
+$("sceneToggle").onchange=e=>{ sceneOn=e.target.checked; render(); };
+$("scenes").oninput=e=>{ scenes=parseInt(e.target.value); $("sceneN").textContent=scenes;
+  $("sceneFac").textContent="× "+commas(fac(scenes))+" ordenamientos"; calc(); };
+render();
+</script>
